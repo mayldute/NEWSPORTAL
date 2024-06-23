@@ -3,6 +3,7 @@ from django.urls import reverse_lazy
 from .models import Post, Author
 from .filters import PostFilter
 from .forms import PostForm
+from django.contrib.auth.mixins import PermissionRequiredMixin
 
 class PostsList(ListView):
     model = Post
@@ -33,7 +34,8 @@ class PostSearch(ListView):
         context['filterset'] = self.filterset
         return context
 
-class CreatePost(CreateView):
+class CreatePost(CreateView, PermissionRequiredMixin):
+    permission_required = ('news.add_post')
     form_class = PostForm
     model = Post
     template_name = 'post_edit.html'
@@ -59,7 +61,8 @@ class CreatePost(CreateView):
         post.category.set(category)
         return super().form_valid(form)
     
-class UpdatePost(UpdateView):
+class UpdatePost(UpdateView, PermissionRequiredMixin):
+    permission_required = ('news.change_post')
     form_class = PostForm
     model = Post
     template_name = 'post_edit.html'

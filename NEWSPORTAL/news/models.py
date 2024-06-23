@@ -2,7 +2,6 @@ from django.db import models
 from django.urls import *
 from django.contrib.auth.models import User
 
-
 TYPE = [
       ('AR', 'статья'),
       ('NW', 'новость')  
