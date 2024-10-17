@@ -36,13 +36,13 @@ class Post(models.Model):
     category = models.ManyToManyField(Category, through='PostCategory')
     
     def preview(self):
-        if len(self.text) > 124:
+        if len(self.text) > 20:
             if self.text[-1] in [',', ':', ';', '!', '?', '-', '(', ')', '*']:
-                return f'{self.text[:123]}...'
+                return f'{self.text[:19]}...'
             elif self.text[-1] == '.':
                 return f'{self.text}..'
             else:
-                return f'{self.text[:124]}...'
+                return f'{self.text[:19]}...'
         else: 
             return f'{self.text}'
             

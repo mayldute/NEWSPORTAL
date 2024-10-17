@@ -10,26 +10,32 @@ from django_apscheduler.models import DjangoJobExecution
 from django.utils import timezone
 from datetime import timedelta
 from posts.models import Post, PostCategory, Category, UserCategorySubscription
-from django.urls import reverse
-from urllib.parse import urljoin
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
- 
+from collections import defaultdict
  
 logger = logging.getLogger(__name__)
  
  
-def my_job():
+def weelky_notify():
     one_week_ago = timezone.now() - timedelta(days=7)
-    recent_posts = Post.objects.filter(create_time__gte=one_week_ago).order_by('-create_time')
-    categories = Category.objects.filter(id__in=PostCategory.objects.filter(post__in=recent_posts).values('id')).distinct()
+    recent_posts = Post.objects.filter(create_time__gte=one_week_ago)
+    categories = Category.objects.filter(id__in=PostCategory.objects.filter(post__in=recent_posts).values('category_id')).distinct()
     subscriptions = UserCategorySubscription.objects.filter(category__in=categories)
-    unique_users_email = set(subscription.user.email for subscription in subscriptions)
+    unique_user_email = set(subscription.user.email for subscription in subscriptions) 
     
-    for user_email in unique_users_email:    
+    for user_email in unique_user_email:
+        user_posts = [] 
+        for subscription in subscriptions:
+            category_id = subscription.category.id
+            posts_for_category = recent_posts.filter(postcategory__category_id=category_id)
+            user_posts.extend(posts_for_category)
+
+        user_posts = sorted(set(user_posts), key=lambda post: post.create_time, reverse=True)
+        
         html_message = render_to_string('profile/weekly_notify_posts.html', {
-            'recent_posts': recent_posts,
+            'user_posts': user_posts,
             })
                 
         send_mail(
@@ -40,6 +46,7 @@ def my_job():
             from_email=settings.DEFAULT_FROM_EMAIL,
             fail_silently=False,
         )
+        
             
 def delete_old_job_executions(max_age=604_800):
     """This job deletes all apscheduler job executions older than `max_age` from the database."""
@@ -54,19 +61,19 @@ class Command(BaseCommand):
         scheduler.add_jobstore(DjangoJobStore(), "default")
         
         scheduler.add_job(
-            my_job,
-            trigger=CronTrigger(minute='*'),  # То же, что и интервал, но задача тригера таким образом более понятна django
-            id="my_job",  # уникальный айди
+            weelky_notify,
+            trigger=CronTrigger(day_of_week='wed', hour=12, minute=0), 
+            id="weelky_notify", 
             max_instances=1,
             replace_existing=True,
         )
-        logger.info("Added job 'my_job'.")
+        logger.info("Added job 'weelky_notify'.")
  
         scheduler.add_job(
             delete_old_job_executions,
             trigger=CronTrigger(
                 day_of_week="mon", hour="00", minute="00"
-            ),  # Каждую неделю будут удаляться старые задачи, которые либо не удалось выполнить, либо уже выполнять не надо.
+            ), 
             id="delete_old_job_executions",
             max_instances=1,
             replace_existing=True,
